@@ -1,0 +1,10 @@
+.vscode
+.idea
+/dist
+/build
+/release
+__pycache__
+*.pyc
+*.egg-info
+*.iml
+*.log
