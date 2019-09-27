@@ -93,30 +93,32 @@ class TransformerLayer(tf.keras.layers.Layer):
                  *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.shape = shape
+        self.hidden_size = hidden_size
         self.do_return_all_layers = do_return_all_layers
 
         attention_head_size = int(hidden_size / num_attention_heads)
-        input_width = shape[2]
 
-        # The Transformer performs sum residuals on all layers so the input needs
-        # to be the same as the hidden size.
-        if input_width != hidden_size:
-            raise ValueError("The width of the input tensor (%d) != hidden size (%d)" %
-                             (input_width, hidden_size))
         self.layers = [TransformerSingleLayer(shape, attention_head_size, hidden_size,
                                               num_attention_heads, intermediate_size, intermediate_act_fn,
                                               hidden_dropout_prob, attention_probs_dropout_prob, name="layer_%d" % i,
                                               ckpt=ckpt)
                        for i in range(num_hidden_layers)]
 
-    def call(self, inputs, **kwargs):
+    def call(self, inputs):
         input_tensor = inputs
         attention_mask = None
         if isinstance(inputs, Sequence):
             input_tensor = inputs[0]
             attention_mask = inputs[1]
+        shape = input_tensor.shape
+        input_width = shape[2]
 
-        input_width = self.shape[2]
+        # The Transformer performs sum residuals on all layers so the input needs
+        # to be the same as the hidden size.
+        if input_width != self.hidden_size:
+            raise ValueError("The width of the input tensor (%d) != hidden size (%d)" %
+                             (input_width, self.hidden_size))
+
         # We keep the representation as a 2D tensor to avoid re-shaping it back and
         # forth from a 3D tensor to a 2D tensor. Re-shapes are normally free on
         # the GPU/CPU but may not be free on the TPU, so we want to minimize them to
@@ -125,16 +127,19 @@ class TransformerLayer(tf.keras.layers.Layer):
 
         all_layer_outputs = []
         for layer in self.layers:
-            layer_output = layer([prev_output, attention_mask])
+            if attention_mask:
+                layer_output = layer([prev_output, attention_mask])
+            else:
+                layer_output = layer(prev_output)
             prev_output = layer_output
             all_layer_outputs.append(layer_output)
 
         if self.do_return_all_layers:
             final_outputs = []
             for layer_output in all_layer_outputs:
-                final_output = tf.reshape(layer_output, self.shape)
+                final_output = tf.reshape(layer_output, [-1] + self.shape)
                 final_outputs.append(final_output)
             return final_outputs
         else:
-            final_output = tf.reshape(prev_output, self.shape)
+            final_output = tf.reshape(prev_output, [-1] + self.shape)
             return final_output

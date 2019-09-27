@@ -9,10 +9,10 @@ from bert import ckpt_initializer
 class AttentionLayer(tf.keras.layers.Layer):
 
     @staticmethod
-    def transpose_for_scores(input_tensor, batch_size, num_attention_heads,
+    def transpose_for_scores(input_tensor, num_attention_heads,
                              seq_length, width, name):
         output_tensor = tf.reshape(
-            input_tensor, [batch_size, seq_length, num_attention_heads, width], name="%s_reshape" % name)
+            input_tensor, [-1, seq_length, num_attention_heads, width], name="%s_reshape" % name)
 
         output_tensor = tf.transpose(output_tensor, [0, 2, 1, 3])
         return output_tensor
@@ -29,8 +29,8 @@ class AttentionLayer(tf.keras.layers.Layer):
                  ckpt_prefix=None,
                  *args, **kwargs):
         """
-        :param from_shape: [batch_size, from_seq_length, from_width]
-        :param to_shape: [batch_size, to_seq_length, to_width]
+        :param from_shape: [from_seq_length, from_width]
+        :param to_shape: [to_seq_length, to_width]
         :param num_attention_heads: int. Number of attention heads.
         :param size_per_head: int. Size of each attention head.
         :param query_act: (optional) Activation function for the query transform.
@@ -41,7 +41,7 @@ class AttentionLayer(tf.keras.layers.Layer):
          num_attention_heads * size_per_head]. If False, the output will be of shape [batch_size, from_seq_length,
          num_attention_heads * size_per_head].
         """
-        super().__init__(batch_size=from_shape[0], *args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.from_shape = from_shape
         self.to_shape = to_shape
         self.num_attention_heads = num_attention_heads
@@ -63,25 +63,28 @@ class AttentionLayer(tf.keras.layers.Layer):
         self.query_layer = \
             tf.keras.layers.Dense(
                 self.num_attention_heads * self.size_per_head, self.query_act,
-                batch_size=from_shape[0] * from_shape[1], name="query",
-                kernel_initializer=ckpt_initializer(ckpt, '%s/query/bias' % self.name, 'glorot_uniform'),
-                bias_initializer=ckpt_initializer(ckpt, '%s/query/kernel' % self.name, 'zeros')
+                name="query",
+                kernel_initializer=ckpt_initializer(ckpt, '%s/%s/query/bias' % (ckpt_prefix, self.name),
+                                                    'glorot_uniform'),
+                bias_initializer=ckpt_initializer(ckpt, '%s/%s/query/kernel' % (ckpt_prefix, self.name), 'zeros')
             )
         # `key_layer` = [B*T, N*H]
         self.key_layer = \
             tf.keras.layers.Dense(
                 self.num_attention_heads * self.size_per_head, self.key_act,
-                batch_size=to_shape[0] * to_shape[1], name="key",
-                kernel_initializer=ckpt_initializer(ckpt, '%s/key/bias' % self.name, 'glorot_uniform'),
-                bias_initializer=ckpt_initializer(ckpt, '%s/key/kernel' % self.name, 'zeros')
+                name="key",
+                kernel_initializer=ckpt_initializer(ckpt, '%s/%s/key/bias' % (ckpt_prefix, self.name),
+                                                    'glorot_uniform'),
+                bias_initializer=ckpt_initializer(ckpt, '%s/%s/key/kernel' % (ckpt_prefix, self.name), 'zeros')
             )
         # `value_layer` = [B*T, N*H]
         self.value_layer = \
             tf.keras.layers.Dense(
                 self.num_attention_heads * self.size_per_head, self.value_act,
-                batch_size=to_shape[0] * to_shape[1], name="value",
-                kernel_initializer=ckpt_initializer(ckpt, '%s/value/bias' % self.name, 'glorot_uniform'),
-                bias_initializer=ckpt_initializer(ckpt, '%s/value/kernel' % self.name, 'zeros')
+                name="value",
+                kernel_initializer=ckpt_initializer(ckpt, '%s/%s/value/bias' % (ckpt_prefix, self.name),
+                                                    'glorot_uniform'),
+                bias_initializer=ckpt_initializer(ckpt, '%s/%s/value/kernel' % (ckpt_prefix, self.name), 'zeros')
             )
 
         self.attention_probs_dropout_layer = tf.keras.layers.Dropout(attention_probs_dropout_prob)
@@ -96,21 +99,20 @@ class AttentionLayer(tf.keras.layers.Layer):
             if len(inputs) > 2:
                 attention_mask = inputs[2]
 
-        batch_size = self.from_shape[0]
-        from_seq_length = self.from_shape[1]
-        to_seq_length = self.to_shape[1]
+        from_seq_length = self.from_shape[0]
+        to_seq_length = self.to_shape[0]
 
-        from_tensor_2d = tf.reshape(from_inputs, [-1, self.from_shape[2]], name="from_reshape")
-        to_tensor_2d = tf.reshape(to_inputs, [-1, self.to_shape[2]], name="to_reshape")
+        from_tensor_2d = tf.reshape(from_inputs, [-1, self.from_shape[1]], name="from_reshape")
+        to_tensor_2d = tf.reshape(to_inputs, [-1, self.to_shape[1]], name="to_reshape")
 
         # `query_layer` = [B, N, F, H]
         query_layer = self.query_layer(from_tensor_2d)
-        query_layer = self.transpose_for_scores(query_layer, batch_size, self.num_attention_heads,
+        query_layer = self.transpose_for_scores(query_layer, self.num_attention_heads,
                                                 from_seq_length, self.size_per_head, name="query_transpose")
 
         # `key_layer` = [B, N, T, H]
         key_layer = self.key_layer(to_tensor_2d)
-        key_layer = self.transpose_for_scores(key_layer, batch_size, self.num_attention_heads,
+        key_layer = self.transpose_for_scores(key_layer, self.num_attention_heads,
                                               to_seq_length, self.size_per_head, name="key_transpose")
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
@@ -141,7 +143,7 @@ class AttentionLayer(tf.keras.layers.Layer):
 
         # `value_layer` = [B, N, T, H]
         value_layer = self.value_layer(to_tensor_2d)
-        value_layer = self.transpose_for_scores(value_layer, batch_size, self.num_attention_heads,
+        value_layer = self.transpose_for_scores(value_layer, self.num_attention_heads,
                                                 to_seq_length, self.size_per_head, name="value_transpose")
 
         # `context_layer` = [B, N, F, H]
@@ -154,11 +156,11 @@ class AttentionLayer(tf.keras.layers.Layer):
             # `context_layer` = [B*F, N*H]
             context_layer = tf.reshape(
                 context_layer,
-                [batch_size * from_seq_length, self.num_attention_heads * self.size_per_head], name="r2d")
+                [-1, self.num_attention_heads * self.size_per_head], name="r2d")
         else:
             # `context_layer` = [B, F, N*H]
             context_layer = tf.reshape(
                 context_layer,
-                [batch_size, from_seq_length, self.num_attention_heads * self.size_per_head], name="r3d")
+                [-1, from_seq_length, self.num_attention_heads * self.size_per_head], name="r3d")
 
         return context_layer
