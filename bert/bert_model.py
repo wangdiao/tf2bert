@@ -1,4 +1,5 @@
 import copy
+from collections import Sequence
 
 import tensorflow as tf
 
@@ -12,7 +13,7 @@ class BertModel(tf.keras.Model):
     def __init__(self,
                  config: BertConfig,
                  input_shape,
-                 input_mask=None,
+                 # input_mask=None,
                  ckpt=None,
                  sequence_output=False,
                  *args, **kwargs):
@@ -22,11 +23,10 @@ class BertModel(tf.keras.Model):
         if self.trainable:
             config.hidden_dropout_prob = 0.0
             config.attention_probs_dropout_prob = 0.0
-
         batch_size = input_shape[0]
         seq_length = input_shape[1]
-        if input_mask is None:
-            input_mask = tf.ones(shape=[batch_size, seq_length], dtype=tf.int32)
+        # if input_mask is None:
+        #     input_mask = tf.ones(shape=[batch_size, seq_length], dtype=tf.int32)
 
         self.embedding = tf.keras.layers.Embedding(
             config.vocab_size, config.hidden_size, mask_zero=True,
@@ -46,9 +46,9 @@ class BertModel(tf.keras.Model):
                 layer_norm_beta_initializer=ckpt_initializer(ckpt, 'bert/embeddings/LayerNorm/beta', 'zeros'),
                 layer_norm_gamma_initializer=ckpt_initializer(ckpt, 'bert/embeddings/LayerNorm/gamma', 'ones')
             )
-        attention_mask = self.create_attention_mask_from_input_mask(input_shape, input_mask, seq_length)
+        # attention_mask = self.create_attention_mask_from_input_mask(input_shape, input_mask, seq_length)
         self.all_encoder_layers = \
-            TransformerLayer(embedding_input_shape, attention_mask=attention_mask, hidden_size=config.hidden_size,
+            TransformerLayer(embedding_input_shape, hidden_size=config.hidden_size,
                              num_hidden_layers=config.num_hidden_layers, num_attention_heads=config.num_attention_heads,
                              intermediate_size=config.intermediate_size,
                              hidden_dropout_prob=config.hidden_dropout_prob,
@@ -61,10 +61,24 @@ class BertModel(tf.keras.Model):
                 bias_initializer=ckpt_initializer(ckpt, 'bert/pooler/dense/bias', 'zeros'),
             )
 
-    def call(self, inputs, training=None, mask=None):
-        embedding_output = self.embedding(inputs)
+    def call(self, inputs):
+        input_tensor = inputs
+        input_mask = None
+        if isinstance(inputs, Sequence):
+            input_tensor = inputs[0]
+            input_mask = inputs[1]
+
+        input_shape = input_tensor.shape
+        print(input_shape)
+        seq_length = input_shape[1]
+        if input_mask:
+            attention_mask = self.create_attention_mask_from_input_mask(input_shape, input_mask, seq_length)
+        embedding_output = self.embedding(input_tensor)
         embedding_output = self.embedding_postprocessor(embedding_output)
-        sequence_output = self.all_encoder_layers(embedding_output)[-1]
+        if attention_mask:
+            sequence_output = self.all_encoder_layers([embedding_output, attention_mask])[-1]
+        else:
+            sequence_output = self.all_encoder_layers(embedding_output)[-1]
         if self.sequence_output:
             return sequence_output
         # The "pooler" converts the encoded sequence tensor of shape
@@ -84,16 +98,14 @@ class BertModel(tf.keras.Model):
         batch_size = from_shape[0]
         from_seq_length = from_shape[1]
 
-        to_mask = tf.cast(
-            tf.reshape(to_mask, [batch_size, 1, to_seq_length]), tf.float32)
+        to_mask = tf.cast(tf.reshape(to_mask, [batch_size, 1, to_seq_length]), tf.float32)
 
         # We don't assume that `from_tensor` is a mask (although it could be). We
         # don't actually care if we attend *from* padding tokens (only *to* padding)
         # tokens so we create a tensor of all ones.
         #
         # `broadcast_ones` = [batch_size, from_seq_length, 1]
-        broadcast_ones = tf.ones(
-            shape=[batch_size, from_seq_length, 1], dtype=tf.float32)
+        broadcast_ones = tf.ones(shape=[batch_size, from_seq_length, 1], dtype=tf.float32)
 
         # Here we broadcast along two dimensions to create the mask.
         mask = broadcast_ones * to_mask

@@ -60,6 +60,7 @@ if __name__ == '__main__':
 
     model = ClassifierModel(
         bert_config=BertConfig.from_json_file("/home/wangdiao/project/bert/chinese_L-12_H-768_A-12/bert_config.json"),
+        bert_ckpt="/home/wangdiao/project/bert/chinese_L-12_H-768_A-12/bert_model.ckpt",
         num_labels=10, input_shape=[batch_size, max_seq_length])
     print('weights:', len(model.variables))
     print('trainable weights:', len(model.trainable_variables))

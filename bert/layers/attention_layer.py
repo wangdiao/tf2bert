@@ -1,4 +1,5 @@
 import math
+from collections import Sequence
 
 import tensorflow as tf
 
@@ -19,7 +20,6 @@ class AttentionLayer(tf.keras.layers.Layer):
     def __init__(self, from_shape, to_shape,
                  num_attention_heads=1,
                  size_per_head=512,
-                 attention_mask=None,
                  query_act=None,
                  key_act=None,
                  value_act=None,
@@ -46,7 +46,7 @@ class AttentionLayer(tf.keras.layers.Layer):
         self.to_shape = to_shape
         self.num_attention_heads = num_attention_heads
         self.size_per_head = size_per_head
-        self.attention_mask = attention_mask
+        # self.attention_mask = attention_mask
         self.query_act = query_act
         self.key_act = key_act
         self.value_act = value_act
@@ -86,12 +86,15 @@ class AttentionLayer(tf.keras.layers.Layer):
 
         self.attention_probs_dropout_layer = tf.keras.layers.Dropout(attention_probs_dropout_prob)
 
-    def call(self, inputs, **kwargs):
+    def call(self, inputs):
         from_inputs = inputs
         to_inputs = inputs
-        if isinstance(inputs, list) and len(inputs) == 2:
+        attention_mask = None
+        if isinstance(inputs, Sequence):
             from_inputs = inputs[0]
             to_inputs = inputs[1]
+            if len(inputs) > 2:
+                attention_mask = inputs[2]
 
         batch_size = self.from_shape[0]
         from_seq_length = self.from_shape[1]
@@ -115,7 +118,7 @@ class AttentionLayer(tf.keras.layers.Layer):
         attention_scores = tf.matmul(query_layer, key_layer, transpose_b=True)
         attention_scores = tf.multiply(attention_scores, 1.0 / math.sqrt(float(self.size_per_head)))
 
-        if self.attention_mask is not None:
+        if attention_mask is not None:
             # `attention_mask` = [B, 1, F, T]
             attention_mask = tf.expand_dims(self.attention_mask, axis=[1])
 

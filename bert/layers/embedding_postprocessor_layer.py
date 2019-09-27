@@ -1,3 +1,5 @@
+from collections import Sequence
+
 import tensorflow as tf
 
 
@@ -28,18 +30,14 @@ class EmbeddingPostprocessorLayer(tf.keras.layers.Layer):
             self.token_type_table = self.add_weight(
                 'token_type_table',
                 shape=[token_type_vocab_size, width],
-                initializer=token_type_embeddings_initializer,
-                dtype=self.dtype,
-                trainable=True)
+                initializer=token_type_embeddings_initializer)
 
         tf.debugging.assert_less_equal(seq_length, max_position_embeddings)
 
         self.position_embeddings = self.add_weight(
             'full_position_embeddings',
             shape=[max_position_embeddings, width],
-            initializer=position_embeddings_initializer,
-            dtype=self.dtype,
-            trainable=True)
+            initializer=position_embeddings_initializer)
         # Since the position embedding table is a learned variable, we create it
         # using a (long) sequence length `max_position_embeddings`. The actual
         # sequence length might be shorter than this, for faster training of
@@ -55,7 +53,13 @@ class EmbeddingPostprocessorLayer(tf.keras.layers.Layer):
                                                              gamma_initializer=layer_norm_gamma_initializer)
 
     def call(self, inputs, **kwargs):
-        output = inputs
+        input_tensor = inputs
+        token_type_ids = None
+        if isinstance(inputs, Sequence):
+            input_tensor = inputs[0]
+            token_type_ids = inputs[1]
+
+        output = input_tensor
         batch_size = self.shape[0]
         seq_length = self.shape[1]
         width = self.shape[2]
@@ -63,7 +67,7 @@ class EmbeddingPostprocessorLayer(tf.keras.layers.Layer):
         if self.use_token_type:
             # This vocab will be small so we always do one-hot here, since it is always
             # faster for a small vocabulary.
-            flat_token_type_ids = tf.reshape(self.token_type_ids, [-1])
+            flat_token_type_ids = tf.reshape(token_type_ids, [-1])
             one_hot_ids = tf.one_hot(flat_token_type_ids, depth=self.token_type_vocab_size)
             token_type_embeddings = tf.matmul(one_hot_ids, self.token_type_table)
             token_type_embeddings = tf.reshape(token_type_embeddings, [-1, seq_length, width])
