@@ -22,9 +22,8 @@ class EmbeddingPostprocessorLayer(tf.keras.layers.Layer):
         self.token_type_vocab_size = token_type_vocab_size
         self.use_position_embeddings = use_position_embeddings
 
-        self.batch_size = shape[0]
-        seq_length = shape[1]
-        width = shape[2]
+        seq_length = shape[0]
+        width = shape[1]
 
         if use_token_type:
             self.token_type_table = self.add_weight(
@@ -52,7 +51,7 @@ class EmbeddingPostprocessorLayer(tf.keras.layers.Layer):
         self.layer_norm = tf.keras.layers.LayerNormalization(beta_initializer=layer_norm_beta_initializer,
                                                              gamma_initializer=layer_norm_gamma_initializer)
 
-    def call(self, inputs, **kwargs):
+    def call(self, inputs):
         input_tensor = inputs
         token_type_ids = None
         if isinstance(inputs, Sequence):
@@ -60,10 +59,8 @@ class EmbeddingPostprocessorLayer(tf.keras.layers.Layer):
             token_type_ids = inputs[1]
 
         output = input_tensor
-        batch_size = self.shape[0]
-        seq_length = self.shape[1]
-        width = self.shape[2]
-        num_dims = len(self.shape)
+        seq_length = self.shape[0]
+        width = self.shape[1]
         if self.use_token_type:
             # This vocab will be small so we always do one-hot here, since it is always
             # faster for a small vocabulary.

@@ -13,14 +13,14 @@ class ClassifierModel(tf.keras.Model):
     def __init__(self,
                  bert_config,
                  num_labels,
-                 input_shape,
+                 seq_length,
                  bert_ckpt=None,
                  *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.num_labels = int(num_labels)
         self.bert_model = BertModel(
             config=bert_config,
-            input_shape=input_shape, ckpt=bert_ckpt, trainable=False)
+            seq_length=seq_length, ckpt=bert_ckpt, trainable=False)
         self.output_layer = tf.keras.layers.Dense(self.num_labels, activation=tf.nn.softmax)
 
     def call(self, inputs, training=None, mask=None):
@@ -29,13 +29,20 @@ class ClassifierModel(tf.keras.Model):
 
 
 if __name__ == '__main__':
+
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if gpus:
+        # tf.config.experimental.set_memory_growth(physical_devices[0], True)
+        tf.config.experimental.set_virtual_device_configuration(
+            gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=1024)])
+
     max_seq_length = 512
     batch_size = 2
-    label_list = ['娱乐', '时尚', '教育', '游戏', '体育', '时政', '房产', '财经', '科技', '家居']
+    label_list = ['财经', '彩票', '房产', '股票', '家居', '教育', '科技', '社会', '时尚', '时政', '体育', '星座', '游戏', '娱乐']
     label_map = {}
     for (i, label) in enumerate(label_list):
         label_map[label] = i
-    dataset = tf.data.TextLineDataset('/home/wangdiao/data/cnews.val.txt')
+    dataset = tf.data.TextLineDataset('/home/wangdiao/data/news/strain.txt')
 
     vocab_path = '/home/wangdiao/project/bert/chinese_L-12_H-768_A-12/vocab.txt'
     tokenizer = tokenization.FullTokenizer(vocab_file=vocab_path, do_lower_case=True)
@@ -61,13 +68,13 @@ if __name__ == '__main__':
     model = ClassifierModel(
         bert_config=BertConfig.from_json_file("/home/wangdiao/project/bert/chinese_L-12_H-768_A-12/bert_config.json"),
         bert_ckpt="/home/wangdiao/project/bert/chinese_L-12_H-768_A-12/bert_model.ckpt",
-        num_labels=10, input_shape=[batch_size, max_seq_length])
+        num_labels=len(label_list), seq_length=max_seq_length)
     print('weights:', len(model.variables))
     print('trainable weights:', len(model.trainable_variables))
     print('bert trainable weights:', len(model.output_layer.variables))
-    model.compile(optimizer='adam',
+    model.compile(optimizer='Nadam',
                   loss='sparse_categorical_crossentropy',
                   metrics=['accuracy'])
-    model.build(input_shape=(batch_size, max_seq_length))
+    model.build(input_shape=(None, max_seq_length))
     model.summary()
     model.fit(dataset)

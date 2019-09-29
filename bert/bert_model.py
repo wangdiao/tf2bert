@@ -12,8 +12,7 @@ from bert.layers.transformer_layer import TransformerLayer
 class BertModel(tf.keras.Model):
     def __init__(self,
                  config: BertConfig,
-                 input_shape,
-                 # input_mask=None,
+                 seq_length,
                  ckpt=None,
                  sequence_output=False,
                  *args, **kwargs):
@@ -23,15 +22,13 @@ class BertModel(tf.keras.Model):
         if self.trainable:
             config.hidden_dropout_prob = 0.0
             config.attention_probs_dropout_prob = 0.0
-        batch_size = input_shape[0]
-        seq_length = input_shape[1]
         # if input_mask is None:
         #     input_mask = tf.ones(shape=[batch_size, seq_length], dtype=tf.int32)
 
         self.embedding = tf.keras.layers.Embedding(
             config.vocab_size, config.hidden_size, mask_zero=True,
             embeddings_initializer=ckpt_initializer(ckpt, 'bert/embeddings/word_embeddings'))
-        embedding_input_shape = [batch_size, seq_length, config.hidden_size]
+        embedding_input_shape = [seq_length, config.hidden_size]
         self.embedding_postprocessor = \
             EmbeddingPostprocessorLayer(
                 embedding_input_shape,
@@ -46,7 +43,6 @@ class BertModel(tf.keras.Model):
                 layer_norm_beta_initializer=ckpt_initializer(ckpt, 'bert/embeddings/LayerNorm/beta', 'zeros'),
                 layer_norm_gamma_initializer=ckpt_initializer(ckpt, 'bert/embeddings/LayerNorm/gamma', 'ones')
             )
-        # attention_mask = self.create_attention_mask_from_input_mask(input_shape, input_mask, seq_length)
         self.all_encoder_layers = \
             TransformerLayer(embedding_input_shape, hidden_size=config.hidden_size,
                              num_hidden_layers=config.num_hidden_layers, num_attention_heads=config.num_attention_heads,
@@ -69,8 +65,8 @@ class BertModel(tf.keras.Model):
             input_mask = inputs[1]
 
         input_shape = input_tensor.shape
-        print(input_shape)
         seq_length = input_shape[1]
+        attention_mask = None
         if input_mask:
             attention_mask = self.create_attention_mask_from_input_mask(input_shape, input_mask, seq_length)
         embedding_output = self.embedding(input_tensor)

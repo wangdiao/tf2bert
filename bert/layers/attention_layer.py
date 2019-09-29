@@ -64,27 +64,27 @@ class AttentionLayer(tf.keras.layers.Layer):
             tf.keras.layers.Dense(
                 self.num_attention_heads * self.size_per_head, self.query_act,
                 name="query",
-                kernel_initializer=ckpt_initializer(ckpt, '%s/%s/query/bias' % (ckpt_prefix, self.name),
+                kernel_initializer=ckpt_initializer(ckpt, '%s/query/kernel' % ckpt_prefix,
                                                     'glorot_uniform'),
-                bias_initializer=ckpt_initializer(ckpt, '%s/%s/query/kernel' % (ckpt_prefix, self.name), 'zeros')
+                bias_initializer=ckpt_initializer(ckpt, '%s/query/bias' % ckpt_prefix, 'zeros')
             )
         # `key_layer` = [B*T, N*H]
         self.key_layer = \
             tf.keras.layers.Dense(
                 self.num_attention_heads * self.size_per_head, self.key_act,
                 name="key",
-                kernel_initializer=ckpt_initializer(ckpt, '%s/%s/key/bias' % (ckpt_prefix, self.name),
+                kernel_initializer=ckpt_initializer(ckpt, '%s/key/kernel' % ckpt_prefix,
                                                     'glorot_uniform'),
-                bias_initializer=ckpt_initializer(ckpt, '%s/%s/key/kernel' % (ckpt_prefix, self.name), 'zeros')
+                bias_initializer=ckpt_initializer(ckpt, '%s/key/bias' % ckpt_prefix, 'zeros')
             )
         # `value_layer` = [B*T, N*H]
         self.value_layer = \
             tf.keras.layers.Dense(
                 self.num_attention_heads * self.size_per_head, self.value_act,
                 name="value",
-                kernel_initializer=ckpt_initializer(ckpt, '%s/%s/value/bias' % (ckpt_prefix, self.name),
+                kernel_initializer=ckpt_initializer(ckpt, '%s/value/kernel' % ckpt_prefix,
                                                     'glorot_uniform'),
-                bias_initializer=ckpt_initializer(ckpt, '%s/%s/value/kernel' % (ckpt_prefix, self.name), 'zeros')
+                bias_initializer=ckpt_initializer(ckpt, '%s/value/bias' % ckpt_prefix, 'zeros')
             )
 
         self.attention_probs_dropout_layer = tf.keras.layers.Dropout(attention_probs_dropout_prob)

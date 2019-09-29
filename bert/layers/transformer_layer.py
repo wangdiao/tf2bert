@@ -23,7 +23,7 @@ class TransformerSingleLayer(tf.keras.layers.Layer):
         self.attention_layer = AttentionLayer(
             shape, shape, num_attention_heads, attention_head_size,
             attention_probs_dropout_prob=attention_probs_dropout_prob,
-            do_return_2d_tensor=True, ckpt=ckpt, ckpt_prefix='bert/encoder/%s/attention/self/' % self.name)
+            do_return_2d_tensor=True, ckpt=ckpt, ckpt_prefix='bert/encoder/%s/attention/self' % self.name)
 
         self.attention_output_dense = \
             tf.keras.layers.Dense(
