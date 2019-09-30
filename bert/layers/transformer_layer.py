@@ -128,9 +128,9 @@ class TransformerLayer(tf.keras.layers.Layer):
         if self.do_return_all_layers:
             final_outputs = []
             for layer_output in all_layer_outputs:
-                final_output = tf.reshape(layer_output, [-1] + self.shape)
+                final_output = tf.reshape(layer_output, [-1, self.shape[0], self.hidden_size])
                 final_outputs.append(final_output)
             return final_outputs
         else:
-            final_output = tf.reshape(prev_output, [-1] + self.shape)
+            final_output = tf.reshape(prev_output, [-1, self.shape[0], self.hidden_size])
             return final_output
