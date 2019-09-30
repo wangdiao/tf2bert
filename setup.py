@@ -95,9 +95,9 @@ setup(
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
     ],
 
     # This field adds keywords for your project which will appear on the
@@ -124,7 +124,7 @@ setup(
     # For an analysis of "install_requires" vs pip's requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     # install_requires=['peppercorn'],  # Optional
-    install_requires=['tensorflow>=2.0.0a,tensorflow-gpu>=2.0.0a', 'numpy'],
+    install_requires=['numpy'],
 
     # List additional groups of dependencies here (e.g. development
     # dependencies). Users will be able to install these using the "extras"
@@ -134,10 +134,10 @@ setup(
     #
     # Similar to `install_requires` above, these must be valid existing
     # projects.
-    # extras_require={  # Optional
-    #     'dev': ['check-manifest'],
-    #     'test': ['coverage'],
-    # },
+    extras_require={  # Optional
+        'tf': ['tensorflow>=2.0.0a'],
+        'tf_gpu': ['tensorflow-gpu>=2.0.0a'],
+    },
 
     # If there are data files included in your packages that need to be
     # installed, specify them here.

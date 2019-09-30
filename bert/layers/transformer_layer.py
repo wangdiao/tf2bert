@@ -1,5 +1,3 @@
-from collections import Sequence
-
 import tensorflow as tf
 
 from bert import ckpt_initializer
@@ -64,8 +62,8 @@ class TransformerSingleLayer(tf.keras.layers.Layer):
             gamma_initializer=ckpt_initializer(ckpt, 'bert/encoder/%s/output/LayerNorm/gamma' % self.name, 'ones')
         )
 
-    def call(self, inputs, **kwargs):
-        attention_head = self.attention_layer(inputs)
+    def call(self, inputs, mask=None, **kwargs):
+        attention_head = self.attention_layer(inputs, mask=mask, **kwargs)
         attention_output = attention_head
         attention_output = self.attention_output_dense(attention_output)
         attention_output = self.attention_output_dropout(attention_output)
@@ -104,12 +102,8 @@ class TransformerLayer(tf.keras.layers.Layer):
                                               ckpt=ckpt)
                        for i in range(num_hidden_layers)]
 
-    def call(self, inputs):
+    def call(self, inputs, mask=None, **kwargs):
         input_tensor = inputs
-        attention_mask = None
-        if isinstance(inputs, Sequence):
-            input_tensor = inputs[0]
-            attention_mask = inputs[1]
         shape = input_tensor.shape
         input_width = shape[2]
 
@@ -127,10 +121,7 @@ class TransformerLayer(tf.keras.layers.Layer):
 
         all_layer_outputs = []
         for layer in self.layers:
-            if attention_mask:
-                layer_output = layer([prev_output, attention_mask])
-            else:
-                layer_output = layer(prev_output)
+            layer_output = layer(prev_output, mask=mask, **kwargs)
             prev_output = layer_output
             all_layer_outputs.append(layer_output)
 

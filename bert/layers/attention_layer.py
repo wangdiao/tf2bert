@@ -46,10 +46,6 @@ class AttentionLayer(tf.keras.layers.Layer):
         self.to_shape = to_shape
         self.num_attention_heads = num_attention_heads
         self.size_per_head = size_per_head
-        # self.attention_mask = attention_mask
-        self.query_act = query_act
-        self.key_act = key_act
-        self.value_act = value_act
         self.do_return_2d_tensor = do_return_2d_tensor
 
         # Scalar dimensions referenced here:
@@ -62,7 +58,7 @@ class AttentionLayer(tf.keras.layers.Layer):
         # `query_layer` = [B*F, N*H]
         self.query_layer = \
             tf.keras.layers.Dense(
-                self.num_attention_heads * self.size_per_head, self.query_act,
+                self.num_attention_heads * self.size_per_head, query_act,
                 name="query",
                 kernel_initializer=ckpt_initializer(ckpt, '%s/query/kernel' % ckpt_prefix,
                                                     'glorot_uniform'),
@@ -71,7 +67,7 @@ class AttentionLayer(tf.keras.layers.Layer):
         # `key_layer` = [B*T, N*H]
         self.key_layer = \
             tf.keras.layers.Dense(
-                self.num_attention_heads * self.size_per_head, self.key_act,
+                self.num_attention_heads * self.size_per_head, key_act,
                 name="key",
                 kernel_initializer=ckpt_initializer(ckpt, '%s/key/kernel' % ckpt_prefix,
                                                     'glorot_uniform'),
@@ -80,7 +76,7 @@ class AttentionLayer(tf.keras.layers.Layer):
         # `value_layer` = [B*T, N*H]
         self.value_layer = \
             tf.keras.layers.Dense(
-                self.num_attention_heads * self.size_per_head, self.value_act,
+                self.num_attention_heads * self.size_per_head, value_act,
                 name="value",
                 kernel_initializer=ckpt_initializer(ckpt, '%s/value/kernel' % ckpt_prefix,
                                                     'glorot_uniform'),
@@ -89,15 +85,13 @@ class AttentionLayer(tf.keras.layers.Layer):
 
         self.attention_probs_dropout_layer = tf.keras.layers.Dropout(attention_probs_dropout_prob)
 
-    def call(self, inputs):
+    def call(self, inputs, mask=None, **kwargs):
         from_inputs = inputs
         to_inputs = inputs
-        attention_mask = None
+        attention_mask = self.prepare_mask(mask)
         if isinstance(inputs, Sequence):
             from_inputs = inputs[0]
             to_inputs = inputs[1]
-            if len(inputs) > 2:
-                attention_mask = inputs[2]
 
         from_seq_length = self.from_shape[0]
         to_seq_length = self.to_shape[0]
@@ -106,12 +100,12 @@ class AttentionLayer(tf.keras.layers.Layer):
         to_tensor_2d = tf.reshape(to_inputs, [-1, self.to_shape[1]], name="to_reshape")
 
         # `query_layer` = [B, N, F, H]
-        query_layer = self.query_layer(from_tensor_2d)
+        query_layer = self.query_layer(from_tensor_2d, **kwargs)
         query_layer = self.transpose_for_scores(query_layer, self.num_attention_heads,
                                                 from_seq_length, self.size_per_head, name="query_transpose")
 
         # `key_layer` = [B, N, T, H]
-        key_layer = self.key_layer(to_tensor_2d)
+        key_layer = self.key_layer(to_tensor_2d, **kwargs)
         key_layer = self.transpose_for_scores(key_layer, self.num_attention_heads,
                                               to_seq_length, self.size_per_head, name="key_transpose")
 
@@ -122,7 +116,7 @@ class AttentionLayer(tf.keras.layers.Layer):
 
         if attention_mask is not None:
             # `attention_mask` = [B, 1, F, T]
-            attention_mask = tf.expand_dims(self.attention_mask, axis=[1])
+            attention_mask = tf.expand_dims(attention_mask, axis=[1])
 
             # Since attention_mask is 1.0 for positions we want to attend and 0.0 for
             # masked positions, this operation will create a tensor which is 0.0 for
@@ -142,7 +136,7 @@ class AttentionLayer(tf.keras.layers.Layer):
         attention_probs = self.attention_probs_dropout_layer(attention_probs)
 
         # `value_layer` = [B, N, T, H]
-        value_layer = self.value_layer(to_tensor_2d)
+        value_layer = self.value_layer(to_tensor_2d, **kwargs)
         value_layer = self.transpose_for_scores(value_layer, self.num_attention_heads,
                                                 to_seq_length, self.size_per_head, name="value_transpose")
 
@@ -164,3 +158,20 @@ class AttentionLayer(tf.keras.layers.Layer):
                 [-1, from_seq_length, self.num_attention_heads * self.size_per_head], name="r3d")
 
         return context_layer
+
+    def prepare_mask(self, mask):
+        if mask is None:
+            return None
+        from_mask = mask
+        to_mask = mask
+        if isinstance(mask, Sequence):
+            from_mask = mask[0]
+            to_mask = mask[1]
+        from_seq_length = from_mask.shape[1]
+        to_seq_length = to_mask.shape[1]
+        to_mask = tf.cast(tf.reshape(to_mask, [-1, 1, to_seq_length]), tf.float32)
+        # We don't assume that `from_tensor` is a mask (although it could be). We
+        # don't actually care if we attend *from* padding tokens (only *to* padding)
+        # tokens so we create a tensor of all ones.
+        #
+        return tf.tile(to_mask, [1, from_seq_length, 1])
