@@ -2,10 +2,10 @@ import copy
 
 import tensorflow as tf
 
-from bert import ckpt_initializer
-from bert.bert_config import BertConfig
-from bert.layers.embedding_postprocessor_layer import EmbeddingPostprocessorLayer
-from bert.layers.transformer_layer import TransformerLayer
+from tf2bert import ckpt_initializer
+from tf2bert.bert_config import BertConfig
+from tf2bert.layers.embedding_postprocessor_layer import EmbeddingPostprocessorLayer
+from tf2bert.layers.transformer_layer import TransformerLayer
 
 
 class BertModel(tf.keras.Model):

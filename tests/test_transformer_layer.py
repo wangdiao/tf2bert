@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from bert.layers.transformer_layer import TransformerLayer
+from tf2bert.layers.transformer_layer import TransformerLayer
 
 
 class TestTransformerLayer(unittest.TestCase):

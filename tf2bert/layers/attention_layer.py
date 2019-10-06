@@ -3,7 +3,7 @@ from collections import Sequence
 
 import tensorflow as tf
 
-from bert import ckpt_initializer
+from tf2bert import ckpt_initializer
 
 
 class AttentionLayer(tf.keras.layers.Layer):

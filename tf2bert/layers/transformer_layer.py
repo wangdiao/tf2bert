@@ -1,8 +1,8 @@
 import tensorflow as tf
 
-from bert import ckpt_initializer
-from bert.layers import gelu
-from bert.layers.attention_layer import AttentionLayer
+from tf2bert import ckpt_initializer
+from tf2bert.layers import gelu
+from tf2bert.layers.attention_layer import AttentionLayer
 
 
 class TransformerSingleLayer(tf.keras.layers.Layer):
@@ -134,3 +134,6 @@ class TransformerLayer(tf.keras.layers.Layer):
         else:
             final_output = tf.reshape(prev_output, [-1, self.shape[0], self.hidden_size])
             return final_output
+
+    def compute_mask(self, inputs, mask=None):
+        return mask

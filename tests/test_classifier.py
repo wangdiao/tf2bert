@@ -5,10 +5,10 @@ import unittest
 
 import tensorflow as tf
 
-from bert import tokenization
-from bert.bert_config import BertConfig
-from bert.models.classifier_model import ClassifierModel
-from bert.tokenization import convert_to_unicode
+from tf2bert import tokenization
+from tf2bert.bert_config import BertConfig
+from tf2bert.models.classifier_model import ClassifierModel
+from tf2bert.tokenization import convert_to_unicode
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:

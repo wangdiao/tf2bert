@@ -1,6 +1,6 @@
 import unittest
 
-from bert import tokenization
+from tf2bert import tokenization
 
 
 class TestTokenization(unittest.TestCase):

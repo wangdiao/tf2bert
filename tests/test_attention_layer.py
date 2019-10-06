@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from bert.layers.attention_layer import AttentionLayer
+from tf2bert.layers.attention_layer import AttentionLayer
 
 
 class TestAttentionLayer(unittest.TestCase):

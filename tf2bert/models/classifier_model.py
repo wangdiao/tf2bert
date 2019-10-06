@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from bert.bert_model import BertModel
+from tf2bert.bert_model import BertModel
 
 
 class ClassifierModel(tf.keras.Model):

@@ -51,7 +51,7 @@ class EmbeddingPostprocessorLayer(tf.keras.layers.Layer):
         self.layer_norm = tf.keras.layers.LayerNormalization(beta_initializer=layer_norm_beta_initializer,
                                                              gamma_initializer=layer_norm_gamma_initializer)
 
-    def call(self, inputs):
+    def call(self, inputs, mask=None, **kwargs):
         input_tensor = inputs
         token_type_ids = None
         if isinstance(inputs, Sequence):
@@ -79,3 +79,6 @@ class EmbeddingPostprocessorLayer(tf.keras.layers.Layer):
         output = self.dropout(output)
         output = self.layer_norm(output)
         return output
+
+    def compute_mask(self, inputs, mask=None):
+        return mask
