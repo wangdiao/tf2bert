@@ -1,5 +1,6 @@
-import tensorflow as tf
+from collections import Sequence
 
+import tensorflow as tf
 from tf2bert import ckpt_initializer
 from tf2bert.layers import gelu
 from tf2bert.layers.attention_layer import AttentionLayer
@@ -64,11 +65,14 @@ class TransformerSingleLayer(tf.keras.layers.Layer):
 
     def call(self, inputs, mask=None, **kwargs):
         attention_head = self.attention_layer(inputs, mask=mask, **kwargs)
+        to_inputs = inputs
+        if isinstance(inputs, Sequence):
+            to_inputs = inputs[1]
         attention_output = attention_head
         attention_output = self.attention_output_dense(attention_output)
         attention_output = self.attention_output_dropout(attention_output)
         attention_output = self.attention_output_layer_norm(
-            tf.add(attention_output, inputs, name="add_attention_output"))
+            tf.add(attention_output, to_inputs, name="add_attention_output"))
         intermediate_output = self.intermediate_layer(attention_output)
         layer_output = self.output_layer(intermediate_output)
         layer_output = self.output_layer_dropout(layer_output)
@@ -102,7 +106,7 @@ class TransformerLayer(tf.keras.layers.Layer):
                                               ckpt=ckpt)
                        for i in range(num_hidden_layers)]
 
-    def call(self, inputs, mask=None, **kwargs):
+    def pre_inputs(self, inputs):
         input_tensor = inputs
         shape = input_tensor.shape
         input_width = shape[2]
@@ -117,14 +121,27 @@ class TransformerLayer(tf.keras.layers.Layer):
         # forth from a 3D tensor to a 2D tensor. Re-shapes are normally free on
         # the GPU/CPU but may not be free on the TPU, so we want to minimize them to
         # help the optimizer.
-        prev_output = tf.reshape(input_tensor, [-1, input_width])
+        return tf.reshape(input_tensor, [-1, input_width])
+
+    def call(self, inputs, mask=None, **kwargs):
+        two_input = False
+        if isinstance(inputs, Sequence):
+            prev_output = [self.pre_inputs(inputs[0]), self.pre_inputs(inputs[1])]
+            two_input = True
+        else:
+            prev_output = self.pre_inputs(inputs)
 
         all_layer_outputs = []
         for layer in self.layers:
             layer_output = layer(prev_output, mask=mask, **kwargs)
-            prev_output = layer_output
+            if two_input:
+                prev_output[1] = layer_output
+            else:
+                prev_output = layer_output
             all_layer_outputs.append(layer_output)
 
+        if two_input:
+            prev_output = prev_output[1]
         if self.do_return_all_layers:
             final_outputs = []
             for layer_output in all_layer_outputs:
@@ -134,6 +151,3 @@ class TransformerLayer(tf.keras.layers.Layer):
         else:
             final_output = tf.reshape(prev_output, [-1, self.shape[0], self.hidden_size])
             return final_output
-
-    def compute_mask(self, inputs, mask=None):
-        return mask
